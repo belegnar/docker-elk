@@ -1,7 +1,26 @@
 version: '3.2'
 
+x-defaults: &defaults
+  environment:
+    # Use single node discovery in order to disable production mode and avoid bootstrap checks.
+    # see: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
+    discovery.type: single-node
+    ES_JAVA_OPTS: "-Xmx1g -Xms1g"
+    LS_JAVA_OPTS: "-Xmx1g -Xms1g"
+    ELASTIC_PASSWORD: changeme
+    # elk passwords
+    LOGSTASH_USER: ${LOGSTASH_USER:-logstash_system}
+    LOGSTASH_PASSWORD: ${LOGSTASH_PASSWORD:-logstash password undefined}
+    KIBANA_USER: ${KIBANA_USER:-kibana_system}
+    KIBANA_PASSWORD: ${KIBANA_PASSWORD:-kibana password undefined}
+    # for logstash.conf
+    # https://www.elastic.co/guide/en/logstash/current/ls-security.html
+    LOGSTASH_LOGS_USER:
+    LOGSTASH_LOGS_PASSWORD:
+
 services:
   elasticsearch:
+    <<: *defaults
     build:
       context: elasticsearch/
       args:
@@ -11,22 +30,18 @@ services:
         source: ./elasticsearch/config/elasticsearch.yml
         target: /usr/share/elasticsearch/config/elasticsearch.yml
         read_only: true
-      - type: volume
-        source: elasticsearch
+      - type: bind
+        source: ./data
         target: /usr/share/elasticsearch/data
+        read_only: false
     ports:
       - "9200:9200"
       - "9300:9300"
-    environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
-      ELASTIC_PASSWORD: changeme
-      # Use single node discovery in order to disable production mode and avoid bootstrap checks.
-      # see: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
-      discovery.type: single-node
     networks:
       - elk
 
   logstash:
+    <<: *defaults
     build:
       context: logstash/
       args:
@@ -45,14 +60,13 @@ services:
       - "5000:5000/tcp"
       - "5000:5000/udp"
       - "9600:9600"
-    environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
     networks:
       - elk
     depends_on:
       - elasticsearch
 
   kibana:
+    <<: *defaults
     build:
       context: kibana/
       args:
@@ -72,6 +86,3 @@ services:
 networks:
   elk:
     driver: bridge
-
-volumes:
-  elasticsearch:
